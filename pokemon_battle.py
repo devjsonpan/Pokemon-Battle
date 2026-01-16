@@ -50,6 +50,8 @@ STATUS_POISON = 3
 STATUS_SLEEP = 4
 STATUS_CONFUSION = 5
 
+player_status_checked = False
+
 # Move names for each Pokemon
 MOVE_NAMES = {
     'Raichu': 'Thunder Wave',
@@ -174,11 +176,14 @@ class Pokemon(pygame.sprite.Sprite):
                 self.status = STATUS_NONE
                 display_message(f'{self.name} snapped out of confusion!')
                 time.sleep(2)
+                update_display()
+                time.sleep(2)
             else:
                 # Attack fails and confusion is removed
                 self.status = STATUS_NONE
                 display_message(f'{self.name} missed due to confusion!')
                 time.sleep(2)
+                other.apply_status_damage_at_turn_end()
                 return  # Turn ends, no damage
         
         # Calculate damage
@@ -209,7 +214,7 @@ class Pokemon(pygame.sprite.Sprite):
             time.sleep(2)
         
         # Apply status condition based on ability (immediately)
-        if self.status_ability and other.status == STATUS_NONE and not missed_attack:
+        if self.status_ability and not missed_attack:
             if self.status_ability == STATUS_BURN:
                 # Burn is guaranteed (100%)
                 other.status = STATUS_BURN
@@ -654,18 +659,18 @@ while game_status != 'quit':
                         game_status = 'prebattle'
             
             elif game_status == 'player turn':
-                
+                update_display()
                 if attack_button.collidepoint(mouse_click):
                     player_pokemon.perform_attack(rival_pokemon)
                     if rival_pokemon.current_hp == 0:
                         game_status = 'fainted'
                     else:
-                        # Apply status damage at END of player's turn
+                        # Apply status damage/update
                         player_pokemon.apply_status_damage_at_turn_end()
                         if player_pokemon.current_hp == 0:
                             game_status = 'fainted'
                         else:
-                            game_status = 'rival turn'
+                            game_status = 'rival turn'     
                     
                 elif potion_button.collidepoint(mouse_click):
                     player_pokemon.use_potion()
@@ -754,42 +759,50 @@ while game_status != 'quit':
         pygame.display.update()
         
     elif game_status == 'player turn':
-        # Check status at START of turn
-        can_act = player_pokemon.check_status_at_turn_start()
         
-        if not can_act:
-            # Cannot act, turn ends
-            time.sleep(2)
-            display_message(f'{player_pokemon.name} cannot attack this turn!')
-            time.sleep(2)
+        # Check status at START of turn
+        if not player_status_checked:
+            can_act = player_pokemon.check_status_at_turn_start()
+            player_status_checked = True  # Mark as checked
             
-            # Apply status damage at END of rival's turn
-            player_pokemon.apply_status_damage_at_turn_end()
-            if player_pokemon.current_hp == 0:
-                game_status = 'fainted'
-            else:
-                game_status = 'rival turn'
+            if not can_act:
+                # Cannot act, turn ends
+                time.sleep(2)
+                display_message(f'{player_pokemon.name} cannot attack this turn!')
+                time.sleep(2)
+                
+                # Apply status damage/update
+                rival_pokemon.apply_status_damage_at_turn_end()
+                player_pokemon.apply_status_damage_at_turn_end()
+                if rival_pokemon.current_hp == 0:
+                    game_status = 'fainted'
+                else:
+                    game_status = 'rival turn'
+                    rival_status_checked = False  # Reset for rival's turn
+                
+                pygame.display.update()
+                continue
             
-            pygame.display.update()
+        # Can act - show buttons
+        game.fill(combat_background_grass_color)
+        pygame.draw.rect(game, combat_background_sky_color, (0, 0, game_width, 150))
+        player_pokemon.draw(draw_grass_pad=True)
+        rival_pokemon.draw(draw_grass_pad=True)
+        player_pokemon.draw_hp()
+        rival_pokemon.draw_hp()
             
-        else:
-            # Can act - show buttons
-            game.fill(combat_background_grass_color)
-            pygame.draw.rect(game, combat_background_sky_color, (0, 0, game_width, 150))
-            player_pokemon.draw(draw_grass_pad=True)
-            rival_pokemon.draw(draw_grass_pad=True)
-            player_pokemon.draw_hp()
-            rival_pokemon.draw_hp()
-            
-            attack_button = create_button(240, 140, 10, 350, 130, 420, 'Attack')
-            potion_button = create_button(240, 140, 250, 350, 370, 420, f'Potion ({player_pokemon.num_potions})')
+        attack_button = create_button(240, 140, 10, 350, 130, 420, 'Attack')
+        potion_button = create_button(240, 140, 250, 350, 370, 420, f'Potion ({player_pokemon.num_potions})')
 
-            pygame.draw.line(game, black, (250, 350), (250, 490), 3)
-            pygame.draw.rect(game, black, (10, 350, 480, 140), 3)
+        pygame.draw.line(game, black, (250, 350), (250, 490), 3)
+        pygame.draw.rect(game, black, (10, 350, 480, 140), 3)
             
-            pygame.display.update()
+        pygame.display.update()
         
     elif game_status == 'rival turn':
+        # Reset for player's next turn
+        player_status_checked = False
+        
         # First, update the display
         update_display()
         
@@ -802,8 +815,9 @@ while game_status != 'quit':
             display_message(f'{rival_pokemon.name} cannot attack this turn!')
             time.sleep(2)
             
-            # Apply status damage at END of rival's turn
+            # Apply status damage/update
             player_pokemon.apply_status_damage_at_turn_end()
+            rival_pokemon.apply_status_damage_at_turn_end()
             if player_pokemon.current_hp == 0:
                 game_status = 'fainted'
             else:
@@ -817,7 +831,7 @@ while game_status != 'quit':
             time.sleep(2)
 
             # AI decision: use potion if low HP
-            if rival_pokemon.current_hp < 60 and rival_pokemon.num_potions > 0:
+            if rival_pokemon.current_hp <= 70 and rival_pokemon.num_potions > 0:
                 rival_pokemon.use_potion()
                 
                 # Update the display to show the new HP and status cleared
@@ -827,15 +841,15 @@ while game_status != 'quit':
             else:
                 # AI attacks
                 rival_pokemon.perform_attack(player_pokemon)
-            
+                            
             if player_pokemon.current_hp == 0:
                 game_status = 'fainted'
             else:
-                # Apply status damage at END of rival's turn
+                # Apply status damage/effect
                 rival_pokemon.apply_status_damage_at_turn_end()
                 if rival_pokemon.current_hp == 0:
                     game_status = 'fainted'
-                else:
+                else: 
                     game_status = 'player turn'
             
             pygame.display.update()
