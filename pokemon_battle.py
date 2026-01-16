@@ -191,7 +191,7 @@ class Pokemon(pygame.sprite.Sprite):
         
         # Missed attack (20% chance)
         missed_attack = False
-        random_num = random.randint(1, 5)
+        random_num = random.randint(1, 2)
         if random_num == 1:
             damage = 0
             missed_attack = True
@@ -201,7 +201,13 @@ class Pokemon(pygame.sprite.Sprite):
         time.sleep(2)
         
         # Apply damage
-        if not missed_attack:
+        if missed_attack:
+            display_message('Attack missed!')
+            time.sleep(2)
+            if other.status == STATUS_BURN or other.status == STATUS_POISON:
+                other.apply_status_damage_at_turn_end()
+                
+        else:
             other.take_damage(damage)
             display_message(f'{self.name} deals {damage} damage!')
             time.sleep(2)
@@ -209,9 +215,6 @@ class Pokemon(pygame.sprite.Sprite):
             # Update the display to show HP change immediately
             update_display()
             time.sleep(1)
-        else:
-            display_message('Attack missed!')
-            time.sleep(2)
         
         # Apply status condition based on ability (immediately)
         if self.status_ability and not missed_attack:
