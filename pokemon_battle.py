@@ -50,6 +50,16 @@ STATUS_POISON = 3
 STATUS_SLEEP = 4
 STATUS_CONFUSION = 5
 
+# Move names for each Pokemon
+MOVE_NAMES = {
+    'Raichu': 'Thunder Wave',
+    'Charizard': 'Will-O-Wisp',
+    'Nidoking': 'Toxic',
+    'Venusaur': 'Sleep Powder',
+    'Gyarados': 'Confuse Ray',
+    'Dragonite': 'Dragon Dance'
+}
+
 class Pokemon(pygame.sprite.Sprite):
     
     def __init__(self, name, type, x, y, hp, attack, status_ability=None):
@@ -75,7 +85,6 @@ class Pokemon(pygame.sprite.Sprite):
         
         # status conditions
         self.status = STATUS_NONE
-        self.paralysis_turns = 0
         self.status_ability = status_ability  # which status this pokemon can inflict
         
         # number of potions left
@@ -87,46 +96,72 @@ class Pokemon(pygame.sprite.Sprite):
         # set the sprite to the front facing sprite
         self.set_sprite('front_default')
     
-    def perform_attack(self, other):
-        # Check if pokemon can attack based on status
-        if self.status == STATUS_SLEEP:
-            # Coin flip to wake up
+    def check_status_at_turn_start(self):
+        """Check and apply status effects at the START of turn"""
+        # Paralysis: Can't act for 1 turn
+        if self.status == STATUS_PARALYSIS:
+            self.status = STATUS_NONE  # Remove paralysis after 1 turn
+            return False  # Cannot act this turn
+        
+        # Burn: Flip coin to try to remove it
+        if self.status == STATUS_BURN:
+            coin = random.choice(['Heads', 'Tails'])
+            display_message(f'{self.name} is burned! Flipping coin...')
+            time.sleep(3)
+            display_message(f'Result: {coin}!')
+            time.sleep(2)
+            if coin == 'Heads':
+                self.status = STATUS_NONE
+                display_message(f'{self.name} healed from burn!')
+                time.sleep(2)
+                return True  # Can act this turn
+            else:
+                display_message(f'{self.name} is still burned!')
+                time.sleep(2)
+                return True  # Can still act, will take damage at end of turn
+        
+        # Sleep: Flip coin to wake up
+        elif self.status == STATUS_SLEEP:
             coin = random.choice(['Heads', 'Tails'])
             display_message(f'{self.name} is asleep! Flipping coin...')
-            time.sleep(2)
+            time.sleep(3)
             display_message(f'Result: {coin}!')
             time.sleep(2)
             if coin == 'Heads':
                 self.status = STATUS_NONE
                 display_message(f'{self.name} woke up!')
                 time.sleep(2)
+                return True  # Can act this turn
             else:
-                display_message(f'{self.name} is still asleep and cannot attack!')
+                display_message(f'{self.name} is still asleep and cannot act!')
                 time.sleep(2)
-                return
+                return False  # Cannot act
         
-        if self.status == STATUS_PARALYSIS:
-            self.paralysis_turns -= 1
-            if self.paralysis_turns <= 0:
-                self.status = STATUS_NONE
-                display_message(f'{self.name} is no longer paralyzed!')
-                time.sleep(2)
-            else:
-                display_message(f'{self.name} is paralyzed and cannot attack!')
-                time.sleep(2)
-                return
+        return True  # Can act
+    
+    def perform_attack(self, other):
+        """Perform an attack on another Pokemon"""
+        # Get move name
+        move_name = MOVE_NAMES.get(self.name, 'Attack')
         
+        # Check confusion WHEN attacking
         if self.status == STATUS_CONFUSION:
-            # Coin flip to see if attack succeeds
             coin = random.choice(['Heads', 'Tails'])
             display_message(f'{self.name} is confused! Flipping coin...')
-            time.sleep(2)
+            time.sleep(3)
             display_message(f'Result: {coin}!')
             time.sleep(2)
-            if coin == 'Tails':
-                display_message(f'{self.name} hurt itself in confusion!')
+            if coin == 'Heads':
+                # Wake up from confusion and attack normally
+                self.status = STATUS_NONE
+                display_message(f'{self.name} snapped out of confusion!')
                 time.sleep(2)
-                return
+            else:
+                # Attack fails and confusion is removed
+                self.status = STATUS_NONE
+                display_message(f'{self.name} missed due to confusion!')
+                time.sleep(2)
+                return  # Turn ends, no damage
         
         # Calculate damage
         damage = self.attack
@@ -138,60 +173,74 @@ class Pokemon(pygame.sprite.Sprite):
             damage = 0
             missed_attack = True
         
+        # Display move used
+        display_message(f'{self.name} used {move_name}!')
+        time.sleep(2)
+        
         # Apply damage
-        other.take_damage(damage)
-        
-        messages = []
-        
-        if missed_attack:
-            messages.append('Attack missed!')
+        if not missed_attack:
+            other.take_damage(damage)
+            display_message(f'{self.name} dealt {damage} damage!')
+            time.sleep(2)
+            pygame.display.update()
         else:
-            messages.append('Hit!')
+            display_message('Attack missed!')
+            time.sleep(2)
         
-        messages.append(f'{self.name} dealt {damage} damage!')
-        
-        # Apply status condition (30% chance if not already afflicted)
+        # Apply status condition based on ability (immediately)
         if self.status_ability and other.status == STATUS_NONE and not missed_attack:
-            if random.randint(1, 10) <= 3:  # 30% chance
-                other.status = self.status_ability
-                if self.status_ability == STATUS_BURN:
-                    messages.append(f'{other.name} was burned!')
-                elif self.status_ability == STATUS_PARALYSIS:
-                    other.paralysis_turns = 1
-                    messages.append(f'{other.name} was paralyzed!')
-                elif self.status_ability == STATUS_POISON:
-                    messages.append(f'{other.name} was poisoned!')
-                elif self.status_ability == STATUS_SLEEP:
-                    messages.append(f'{other.name} fell asleep!')
-                elif self.status_ability == STATUS_CONFUSION:
-                    messages.append(f'{other.name} became confused!')
-        
-        # Display messages sequentially
-        for message in messages:
-            display_message(message)
-            time.sleep(2)
+            if self.status_ability == STATUS_BURN:
+                # Burn is guaranteed (100%)
+                other.status = STATUS_BURN
+                other.take_damage(20)
+                display_message(f'{other.name} is burned!')
+                time.sleep(2)
+            
+            elif self.status_ability == STATUS_POISON:
+                # Poison is guaranteed (100%)
+                other.status = STATUS_POISON
+                other.take_damage(10)
+                display_message(f'{other.name} is poisoned!')
+                time.sleep(2)
+            
+            elif self.status_ability == STATUS_PARALYSIS:
+                # Paralysis has 50% chance
+                if random.randint(1, 1) == 1:
+                    other.status = STATUS_PARALYSIS
+                    display_message(f'{other.name} is paralyzed!')
+                    pygame.display.update()
+                    time.sleep(2)
+            
+            elif self.status_ability == STATUS_SLEEP:
+                # Sleep is guaranteed (100%)
+                other.status = STATUS_SLEEP
+                display_message(f'{other.name} fell asleep!')
+                time.sleep(2)
+            
+            elif self.status_ability == STATUS_CONFUSION:
+                # Confusion is guaranteed (100%)
+                other.status = STATUS_CONFUSION
+                display_message(f'{other.name} is confused!')
+                time.sleep(2)
     
-    def apply_status_damage(self):
-        """Apply end-of-turn status effects"""
+    def apply_status_damage_at_turn_end(self):
+        """Apply status damage at the END of turn"""
+        # Burn: Take 20 damage at end of turn (if still burned)
         if self.status == STATUS_BURN:
-            # Coin flip to heal from burn
-            coin = random.choice(['Heads', 'Tails'])
-            display_message(f'{self.name} is burned! Flipping coin...')
+            self.take_damage(20)
+            display_message(f'{self.name} took 20 burn damage!')
             time.sleep(2)
-            display_message(f'Result: {coin}!')
-            time.sleep(2)
-            if coin == 'Heads':
-                self.status = STATUS_NONE
-                display_message(f'{self.name} healed from burn!')
-                time.sleep(2)
-            else:
-                self.take_damage(20)
-                display_message(f'{self.name} took 20 burn damage!')
-                time.sleep(2)
         
+        # Poison: Take 10 damage at end of turn
         elif self.status == STATUS_POISON:
             self.take_damage(10)
             display_message(f'{self.name} took 10 poison damage!')
+            time.sleep(2)
+        
+        # Paralysis: Remove it at end of turn
+        elif self.status == STATUS_PARALYSIS:
+            self.status = STATUS_NONE
+            display_message(f'{self.name} is no longer paralyzed!')
             time.sleep(2)
     
     def take_damage(self, damage):
@@ -201,16 +250,23 @@ class Pokemon(pygame.sprite.Sprite):
     
     def use_potion(self):
         if self.num_potions > 0:
-            # Heal 50 HP and cure status
+            # Heal 50 HP
             self.current_hp += 50
             if self.current_hp > self.max_hp:
                 self.current_hp = self.max_hp
             self.num_potions -= 1
             
             # Cure status conditions
-            if self.status != STATUS_NONE:
-                self.status = STATUS_NONE
-                self.paralysis_turns = 0
+            had_status = self.status != STATUS_NONE
+            self.status = STATUS_NONE
+            
+            display_message(f'{self.name} used a potion and healed 50 HP!')
+            time.sleep(2)
+            if had_status:
+                display_message(f'{self.name} is cured of all status conditions!')
+                time.sleep(2)
+            return True
+        return False
     
     def set_sprite(self, side):
         image = self.json['sprites'][side]
@@ -337,18 +393,18 @@ def draw_instructions():
     game.fill(background_color)
     pygame.draw.polygon(game, white, [(0, 0), (game_width, 0), (0, game_height)])
     pygame.draw.polygon(game, light_green, [(game_width, game_height), (game_width, 0), (0, game_height)])
-    font = pygame.font.Font(pygame.font.get_default_font(), 16)
+    font = pygame.font.Font(pygame.font.get_default_font(), 14)
     lines = [
         "How to Play:",
-        "1. Select a Pokemon from the selection screen",
-        "2. Battle against a rival's Pokemon",
-        "3. Attack or use potions (heals 50 HP & cures status)",
-        "4. Status conditions affect gameplay:",
-        "   - Burn: 20 damage/turn, coin flip to heal",
-        "   - Poison: 10 damage/turn",
-        "   - Sleep: Can't attack, coin flip to wake",
-        "   - Paralysis: Can't attack for 1 turn",
-        "   - Confusion: Coin flip to attack successfully",
+        "1. Select a Pokemon - each has unique moves",
+        "2. Attack or use potions (heals 50 HP & cures status)",
+        "3. You can use multiple potions per turn!",
+        "4. Status conditions:",
+        "   - Burn (100%): 20 dmg/turn, coin flip to remove",
+        "   - Poison (100%): 10 dmg/turn, permanent",
+        "   - Sleep (100%): Can't act, coin flip to wake",
+        "   - Paralysis (50%): Can't act for 1 turn",
+        "   - Confusion (100%): Coin flip when attacking",
         "5. First to reduce opponent's HP to 0 wins!",
     ]
     y = 30
@@ -356,12 +412,12 @@ def draw_instructions():
         text = font.render(line, True, black)
         text_rect = text.get_rect(center=(game_width // 2, y))
         game.blit(text, text_rect)
-        y += 40
+        y += 38
 
-    pygame.draw.rect(game, white, (150, 440, 200, 40))
-    pygame.draw.rect(game, black, (150, 440, 200, 40), 2)
+    pygame.draw.rect(game, white, (150, 445, 200, 40))
+    pygame.draw.rect(game, black, (150, 445, 200, 40), 2)
     text = font.render("Press 'B' to go back", True, black)
-    text_rect = text.get_rect(center=(game_width // 2, 460))
+    text_rect = text.get_rect(center=(game_width // 2, 465))
     game.blit(text, text_rect)
 
     pygame.display.update()
@@ -387,9 +443,6 @@ def draw_pokemon_select_screen(pokemons):
         elif i < 6:
             pokemon.x = 50 + (i - 3) * (pokemon.size + 50)
             pokemon.y = 250
-        else:
-            pokemon.x = 150 + (i - 6) * (pokemon.size + 200)
-            pokemon.y = 400
 
         rect = pokemon.get_rect()
 
@@ -427,31 +480,34 @@ def draw_pokemon_stats_screen(pokemons, index):
     pokemon = pokemons[index]
     
     status_names = {
-        STATUS_BURN: "Burn",
-        STATUS_PARALYSIS: "Paralysis", 
-        STATUS_POISON: "Poison",
-        STATUS_SLEEP: "Sleep",
-        STATUS_CONFUSION: "Confusion",
+        STATUS_BURN: "Burn (30%)",
+        STATUS_PARALYSIS: "Paralysis (50%)", 
+        STATUS_POISON: "Poison (100%)",
+        STATUS_SLEEP: "Sleep (100%)",
+        STATUS_CONFUSION: "Confusion (100%)",
         None: "None"
     }
+    
+    move_name = MOVE_NAMES.get(pokemon.name, 'Attack')
     
     pokemon_details = [
         f"Name: {pokemon.name}",
         f"Type: {pokemon.type}",
-        f"HP: {pokemon.current_hp}/{pokemon.max_hp}",
+        f"HP: {pokemon.max_hp}",
         f"Attack: {pokemon.attack}",
-        f"Status Ability: {status_names.get(pokemon.status_ability, 'None')}"
+        f"Move: {move_name}",
+        f"Status: {status_names.get(pokemon.status_ability, 'None')}"
     ]
     
-    pokemon_image = pygame.transform.scale(pokemon.image, (250, 250))
-    game.blit(pokemon_image, (game_width - 270, 120))
+    pokemon_image = pygame.transform.scale(pokemon.image, (230, 230))
+    game.blit(pokemon_image, (game_width - 250, 130))
 
     y = 90
     for detail in pokemon_details:
         text = font.render(detail, True, black)
         text_rect = text.get_rect(left=30, top=y)
         game.blit(text, text_rect)
-        y += 35
+        y += 32
 
     button_previous = create_button(100, 50, 20, 400, 70, 425, 'Previous')
     button_next = create_button(100, 50, 380, 400, 430, 425, 'Next')
@@ -465,13 +521,13 @@ def draw_pokemon_stats_screen(pokemons, index):
     pygame.display.update()
     return button_previous, button_next
     
-# Create the starter pokemons (TCG Pocket style stats: HP ~120-180, Attack ~30-70)
-raichu = Pokemon('Raichu', 'Electric', 25, 50, 120, 50, STATUS_PARALYSIS)
-charizard = Pokemon('Charizard', 'Fire', 175, 50, 180, 70, STATUS_BURN)
-venusaur = Pokemon('Venusaur', 'Grass', 325, 50, 160, 60, STATUS_SLEEP)
-gyarados = Pokemon('Gyarados', 'Water', 25, 200, 150, 65, STATUS_CONFUSION)
-nidoking = Pokemon('Nidoking', 'Poison/Ground', 175, 200, 140, 55, STATUS_POISON)
-dragonite = Pokemon('Dragonite', 'Dragon', 325, 200, 170, 60, None)
+# Create the starter pokemons (TCG Pocket style stats)
+raichu = Pokemon('Raichu', 'Electric', 25, 50, 120, 30, STATUS_PARALYSIS)
+charizard = Pokemon('Charizard', 'Fire', 175, 50, 180, 50, STATUS_BURN)
+venusaur = Pokemon('Venusaur', 'Grass', 325, 50, 160, 40, STATUS_SLEEP)
+gyarados = Pokemon('Gyarados', 'Water', 25, 200, 150, 45, STATUS_CONFUSION)
+nidoking = Pokemon('Nidoking', 'Poison/Ground', 175, 200, 140, 35, STATUS_POISON)
+dragonite = Pokemon('Dragonite', 'Dragon', 325, 200, 170, 40, None)
 pokemons = [raichu, charizard, venusaur, gyarados, nidoking, dragonite]
 
 player_pokemon = None
@@ -494,12 +550,12 @@ while game_status != 'quit':
         if event.type == KEYDOWN:
             
             if event.key == K_y and game_status == 'gameover':
-                raichu = Pokemon('Raichu', 'Electric', 25, 50, 120, 50, STATUS_PARALYSIS)
-                charizard = Pokemon('Charizard', 'Fire', 175, 50, 180, 70, STATUS_BURN)
-                venusaur = Pokemon('Venusaur', 'Grass', 325, 50, 160, 60, STATUS_SLEEP)
-                gyarados = Pokemon('Gyarados', 'Water', 25, 200, 150, 65, STATUS_CONFUSION)
-                nidoking = Pokemon('Nidoking', 'Poison/Ground', 175, 200, 140, 55, STATUS_POISON)
-                dragonite = Pokemon('Dragonite', 'Dragon', 325, 200, 170, 60, None)
+                raichu = Pokemon('Raichu', 'Electric', 25, 50, 120, 30, STATUS_PARALYSIS)
+                charizard = Pokemon('Charizard', 'Fire', 175, 50, 180, 50, STATUS_BURN)
+                venusaur = Pokemon('Venusaur', 'Grass', 325, 50, 160, 40, STATUS_SLEEP)
+                gyarados = Pokemon('Gyarados', 'Water', 25, 200, 150, 45, STATUS_CONFUSION)
+                nidoking = Pokemon('Nidoking', 'Poison/Ground', 175, 200, 140, 35, STATUS_POISON)
+                dragonite = Pokemon('Dragonite', 'Dragon', 325, 200, 170, 40, None)
                 pokemons = [raichu, charizard, venusaur, gyarados, nidoking, dragonite]
                 game_status = 'select pokemon'
                 
@@ -554,32 +610,16 @@ while game_status != 'quit':
                     if rival_pokemon.current_hp == 0:
                         game_status = 'fainted'
                     else:
-                        # Apply status damage to rival
-                        rival_pokemon.apply_status_damage()
-                        if rival_pokemon.current_hp == 0:
+                        # Apply status damage at END of player's turn
+                        player_pokemon.apply_status_damage_at_turn_end()
+                        if player_pokemon.current_hp == 0:
                             game_status = 'fainted'
                         else:
                             game_status = 'rival turn'
                     
                 elif potion_button.collidepoint(mouse_click):
-                    if player_pokemon.num_potions == 0:
-                        display_message('No more potions left!')
-                        time.sleep(2)
-                        game_status = 'player turn'
-                    else:
-                        player_pokemon.use_potion()
-                        display_message(f'{player_pokemon.name} used a potion!')
-                        time.sleep(2)
-                        game_status = 'player turn'   
-                
-                elif end_turn_button.collidepoint(mouse_click):
-                    display_message(f'{player_pokemon.name} ended their turn!')
-                    time.sleep(2)
-                    rival_pokemon.apply_status_damage()
-                    if rival_pokemon.current_hp == 0:
-                        game_status = 'fainted'
-                    else:
-                        game_status = 'rival turn'
+                    player_pokemon.use_potion()
+                    # Don't end turn - stay on 'player turn' to allow attack or more potions
                                   
             elif game_status == 'pokemon stats':
                 if button_previous and button_previous.collidepoint(mouse_click):
@@ -628,6 +668,8 @@ while game_status != 'quit':
             display_message(f'Rival sent out {rival_pokemon.name}!')
             alpha += .4
             pygame.display.update()
+        rival_pokemon.draw_hp()
+        pygame.display.update()
             
         time.sleep(1)
         
@@ -638,71 +680,109 @@ while game_status != 'quit':
             display_message(f'Go {player_pokemon.name}!')
             alpha += .4 
             pygame.display.update()
-        
         player_pokemon.draw_hp()
-        rival_pokemon.draw_hp()
+        pygame.display.update()
         
+        # Coin flip to see who goes first
+        time.sleep(2)
         coin = random.choice(['Heads', 'Tails'])
+        display_message(f'Flipping coin to see who goes first...')
+        time.sleep(3)
+
+        display_message(f'{coin}!')
+        time.sleep(2)
+        
         if coin == 'Heads': 
-            game_status = 'rival turn'
-        else:
+            display_message('Player goes first!')
+            time.sleep(2)
             game_status = 'player turn'
+        else:
+            display_message('Rival goes first!')
+            time.sleep(2)
+            game_status = 'rival turn'
             
         pygame.display.update()
-        time.sleep(1)
         
     elif game_status == 'player turn':
+        # Check status at START of turn
+        can_act = player_pokemon.check_status_at_turn_start()
         
-        game.fill(combat_background_grass_color)
-        pygame.draw.rect(game, combat_background_sky_color, (0, 0, game_width, 150))
-        player_pokemon.draw(draw_grass_pad=True)
-        rival_pokemon.draw(draw_grass_pad=True)
-        player_pokemon.draw_hp()
-        rival_pokemon.draw_hp()
-        
-        attack_button = create_button(160, 140, 10, 350, 90, 420, 'Attack')
-        potion_button = create_button(160, 140, 170, 350, 250, 420, f'Potion ({player_pokemon.num_potions})')
-        end_turn_button = create_button(160, 140, 330, 350, 410, 420, 'End Turn')
+        if not can_act:
+            # Cannot act, turn ends
+            game_status = 'rival turn'
+            pygame.display.update()
+            time.sleep(1)
+        else:
+            # Can act - show buttons
+            game.fill(combat_background_grass_color)
+            pygame.draw.rect(game, combat_background_sky_color, (0, 0, game_width, 150))
+            player_pokemon.draw(draw_grass_pad=True)
+            rival_pokemon.draw(draw_grass_pad=True)
+            player_pokemon.draw_hp()
+            rival_pokemon.draw_hp()
+            
+            attack_button = create_button(240, 140, 10, 350, 130, 420, 'Attack')
+            potion_button = create_button(240, 140, 250, 350, 370, 420, f'Potion ({player_pokemon.num_potions})')
 
-        pygame.draw.line(game, black, (167, 350), (167, 487), 3)
-        pygame.draw.line(game, black, (333, 350), (333, 487), 3)
-        pygame.draw.rect(game, black, (10, 350, 480, 140), 3)
-        
-        pygame.display.update()
+            pygame.draw.line(game, black, (250, 350), (250, 490), 3)
+            pygame.draw.rect(game, black, (10, 350, 480, 140), 3)
+            
+            pygame.display.update()
         
     elif game_status == 'rival turn':
-        
+        # First, update the display
         game.fill(combat_background_grass_color)
         pygame.draw.rect(game, combat_background_sky_color, (0, 0, game_width, 150))
         player_pokemon.draw(draw_grass_pad=True)
         rival_pokemon.draw(draw_grass_pad=True)
         player_pokemon.draw_hp()
         rival_pokemon.draw_hp()
+        pygame.display.update()
         
-        display_message('')
-        time.sleep(2)
-
-        if rival_pokemon.current_hp < 60 and rival_pokemon.num_potions > 0:
-            rival_pokemon.use_potion()
-            display_message(f'{rival_pokemon.name} used a potion!')
-            pygame.display.update()  
-            time.sleep(2) 
-        else:
-            rival_pokemon.perform_attack(player_pokemon)
+        # Check status at START of turn
+        can_act = rival_pokemon.check_status_at_turn_start()
         
-        if player_pokemon.current_hp == 0:
-            game_status = 'fainted'
-        else:
-            # Apply status damage to player
-            player_pokemon.apply_status_damage()
-            if player_pokemon.current_hp == 0:
+        if not can_act:
+            # Cannot act, turn ends
+            time.sleep(2)
+            display_message(f'{rival_pokemon.name} cannot act!')
+            time.sleep(2)
+            
+            # Apply status damage at END of rival's turn
+            rival_pokemon.apply_status_damage_at_turn_end()
+            if rival_pokemon.current_hp == 0:
                 game_status = 'fainted'
             else:
                 game_status = 'player turn'
             
-        pygame.display.update()
+            pygame.display.update()
+            
+        else:
+            # Rival can act
+            display_message('Rival is thinking...')
+            time.sleep(2)
+
+            # AI decision: use potion if low HP
+            if rival_pokemon.current_hp < 60 and rival_pokemon.num_potions > 0:
+                rival_pokemon.use_potion()
+                time.sleep(2) 
+                rival_pokemon.perform_attack(player_pokemon)
+            else:
+                # AI attacks
+                rival_pokemon.perform_attack(player_pokemon)
+            
+            if player_pokemon.current_hp == 0:
+                game_status = 'fainted'
+            else:
+                # Apply status damage at END of rival's turn
+                rival_pokemon.apply_status_damage_at_turn_end()
+                if rival_pokemon.current_hp == 0:
+                    game_status = 'fainted'
+                else:
+                    game_status = 'player turn'
+            
+            pygame.display.update()
         
-    # one of the pokemons fainted
     elif game_status == 'fainted':
         
         alpha = 255
@@ -713,7 +793,6 @@ while game_status != 'quit':
             player_pokemon.draw_hp()
             rival_pokemon.draw_hp()
             
-            # determine which pokemon fainted
             if rival_pokemon.current_hp == 0:
                 player_pokemon.draw(draw_grass_pad=True)
                 rival_pokemon.draw(alpha, draw_grass_pad=True)
@@ -728,7 +807,6 @@ while game_status != 'quit':
             
         game_status = 'gameover'
         
-    # gameover screen
     if game_status == 'gameover':
         
         display_message('Play again (Y/N)?')
