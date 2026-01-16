@@ -118,7 +118,7 @@ class Pokemon(pygame.sprite.Sprite):
             return False  # Cannot act this turn
         
         # Burn: Flip coin to try to remove it
-        if self.status == STATUS_BURN:
+        elif self.status == STATUS_BURN:
             coin = random.choice(['Heads', 'Tails'])
             display_message(f'{self.name} is burned! Flipping coin...')
             time.sleep(3)
@@ -386,7 +386,7 @@ class Pokemon(pygame.sprite.Sprite):
             pygame.draw.rect(game, black, status_bg, 2)
             
             # Create and center status text
-            status_surface = font.render(status_text, True, white)
+            status_surface = font.render(status_text, True, black)
             
             # Method 1: Get text rectangle and center it within the background
             status_text_rect = status_surface.get_rect(center=status_bg.center)
