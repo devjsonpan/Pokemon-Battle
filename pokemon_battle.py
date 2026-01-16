@@ -60,6 +60,20 @@ MOVE_NAMES = {
     'Dragonite': 'Dragon Dance'
 }
 
+def update_display():
+    """Helper function to update the battle screen display"""
+    game.fill(combat_background_grass_color)
+    pygame.draw.rect(game, combat_background_sky_color, (0, 0, game_width, 150))
+    
+    # Draw both Pokemon if they exist
+    if player_pokemon and rival_pokemon:
+        player_pokemon.draw(draw_grass_pad=True)
+        rival_pokemon.draw(draw_grass_pad=True)
+        player_pokemon.draw_hp()
+        rival_pokemon.draw_hp()
+    
+    pygame.display.update()
+    
 class Pokemon(pygame.sprite.Sprite):
     
     def __init__(self, name, type, x, y, hp, attack, status_ability=None):
@@ -112,8 +126,10 @@ class Pokemon(pygame.sprite.Sprite):
             time.sleep(2)
             if coin == 'Heads':
                 self.status = STATUS_NONE
-                display_message(f'{self.name} healed from burn!')
+                display_message(f'{self.name} recovered from burn!')
                 time.sleep(2)
+                # Update display to show status removed
+                update_display()
                 return True  # Can act this turn
             else:
                 display_message(f'{self.name} is still burned!')
@@ -131,9 +147,11 @@ class Pokemon(pygame.sprite.Sprite):
                 self.status = STATUS_NONE
                 display_message(f'{self.name} woke up!')
                 time.sleep(2)
+                # Update display to show status removed
+                update_display()
                 return True  # Can act this turn
             else:
-                display_message(f'{self.name} is still asleep and cannot act!')
+                display_message(f'{self.name} is still asleep!')
                 time.sleep(2)
                 return False  # Cannot act
         
@@ -174,15 +192,18 @@ class Pokemon(pygame.sprite.Sprite):
             missed_attack = True
         
         # Display move used
-        display_message(f'{self.name} used {move_name}!')
+        display_message(f'{self.name} uses {move_name}!')
         time.sleep(2)
         
         # Apply damage
         if not missed_attack:
             other.take_damage(damage)
-            display_message(f'{self.name} dealt {damage} damage!')
+            display_message(f'{self.name} deals {damage} damage!')
             time.sleep(2)
-            pygame.display.update()
+            
+            # Update the display to show HP change immediately
+            update_display()
+            time.sleep(1)
         else:
             display_message('Attack missed!')
             time.sleep(2)
@@ -205,10 +226,9 @@ class Pokemon(pygame.sprite.Sprite):
             
             elif self.status_ability == STATUS_PARALYSIS:
                 # Paralysis has 50% chance
-                if random.randint(1, 1) == 1:
+                if random.randint(1, 2) == 1:
                     other.status = STATUS_PARALYSIS
                     display_message(f'{other.name} is paralyzed!')
-                    pygame.display.update()
                     time.sleep(2)
             
             elif self.status_ability == STATUS_SLEEP:
@@ -222,6 +242,10 @@ class Pokemon(pygame.sprite.Sprite):
                 other.status = STATUS_CONFUSION
                 display_message(f'{other.name} is confused!')
                 time.sleep(2)
+            
+            # Update the display to show status condition immediately
+            update_display()
+            time.sleep(1)
     
     def apply_status_damage_at_turn_end(self):
         """Apply status damage at the END of turn"""
@@ -230,18 +254,27 @@ class Pokemon(pygame.sprite.Sprite):
             self.take_damage(20)
             display_message(f'{self.name} took 20 burn damage!')
             time.sleep(2)
+            # Update display to show HP change
+            update_display()
+            time.sleep(1)
         
         # Poison: Take 10 damage at end of turn
         elif self.status == STATUS_POISON:
             self.take_damage(10)
             display_message(f'{self.name} took 10 poison damage!')
             time.sleep(2)
+            # Update display to show HP change
+            update_display()
+            time.sleep(1)
         
         # Paralysis: Remove it at end of turn
         elif self.status == STATUS_PARALYSIS:
             self.status = STATUS_NONE
             display_message(f'{self.name} is no longer paralyzed!')
             time.sleep(2)
+            # Update display to show status removed
+            update_display()
+            time.sleep(1)
     
     def take_damage(self, damage):
         self.current_hp -= damage
@@ -260,11 +293,16 @@ class Pokemon(pygame.sprite.Sprite):
             had_status = self.status != STATUS_NONE
             self.status = STATUS_NONE
             
-            display_message(f'{self.name} used a potion and healed 50 HP!')
+            display_message(f'{self.name} uses a potion and heals 50 HP!')
             time.sleep(2)
             if had_status:
                 display_message(f'{self.name} is cured of all status conditions!')
                 time.sleep(2)
+                
+            # Update display to show HP change and status removed
+            update_display()
+            time.sleep(1)
+            
             return True
         return False
     
@@ -336,11 +374,23 @@ class Pokemon(pygame.sprite.Sprite):
                 status_text = "CNF"
                 status_color = pink
             
-            status_surface = font.render(status_text, True, white)
-            status_bg = pygame.Rect(self.hp_x + bar_width + 10, self.hp_y, 50, 20)
+            # Create status background rectangle
+            status_bg_width = 50
+            status_bg_height = 20
+            status_bg_x = self.hp_x + bar_width + 10
+            status_bg_y = self.hp_y
+            status_bg = pygame.Rect(status_bg_x, status_bg_y, status_bg_width, status_bg_height)
+            
+            # Draw status background and border
             pygame.draw.rect(game, status_color, status_bg)
             pygame.draw.rect(game, black, status_bg, 2)
-            game.blit(status_surface, (self.hp_x + bar_width + 15, self.hp_y + 2))
+            
+            # Create and center status text
+            status_surface = font.render(status_text, True, white)
+            
+            # Method 1: Get text rectangle and center it within the background
+            status_text_rect = status_surface.get_rect(center=status_bg.center)
+            game.blit(status_surface, status_text_rect)
         
     def get_rect(self):
         return Rect(self.x, self.y, self.image.get_width(), self.image.get_height())
@@ -709,9 +759,19 @@ while game_status != 'quit':
         
         if not can_act:
             # Cannot act, turn ends
-            game_status = 'rival turn'
+            time.sleep(2)
+            display_message(f'{player_pokemon.name} cannot attack this turn!')
+            time.sleep(2)
+            
+            # Apply status damage at END of rival's turn
+            player_pokemon.apply_status_damage_at_turn_end()
+            if player_pokemon.current_hp == 0:
+                game_status = 'fainted'
+            else:
+                game_status = 'rival turn'
+            
             pygame.display.update()
-            time.sleep(1)
+            
         else:
             # Can act - show buttons
             game.fill(combat_background_grass_color)
@@ -731,13 +791,7 @@ while game_status != 'quit':
         
     elif game_status == 'rival turn':
         # First, update the display
-        game.fill(combat_background_grass_color)
-        pygame.draw.rect(game, combat_background_sky_color, (0, 0, game_width, 150))
-        player_pokemon.draw(draw_grass_pad=True)
-        rival_pokemon.draw(draw_grass_pad=True)
-        player_pokemon.draw_hp()
-        rival_pokemon.draw_hp()
-        pygame.display.update()
+        update_display()
         
         # Check status at START of turn
         can_act = rival_pokemon.check_status_at_turn_start()
@@ -745,12 +799,12 @@ while game_status != 'quit':
         if not can_act:
             # Cannot act, turn ends
             time.sleep(2)
-            display_message(f'{rival_pokemon.name} cannot act!')
+            display_message(f'{rival_pokemon.name} cannot attack this turn!')
             time.sleep(2)
             
             # Apply status damage at END of rival's turn
-            rival_pokemon.apply_status_damage_at_turn_end()
-            if rival_pokemon.current_hp == 0:
+            player_pokemon.apply_status_damage_at_turn_end()
+            if player_pokemon.current_hp == 0:
                 game_status = 'fainted'
             else:
                 game_status = 'player turn'
@@ -765,6 +819,9 @@ while game_status != 'quit':
             # AI decision: use potion if low HP
             if rival_pokemon.current_hp < 60 and rival_pokemon.num_potions > 0:
                 rival_pokemon.use_potion()
+                
+                # Update the display to show the new HP and status cleared
+                update_display()
                 time.sleep(2) 
                 rival_pokemon.perform_attack(player_pokemon)
             else:
