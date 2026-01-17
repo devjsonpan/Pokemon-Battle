@@ -55,12 +55,42 @@ player_status_checked = False
 # Move names for each Pokemon
 MOVE_NAMES = {
     'Raichu': 'Thunder Wave',
-    'Charizard': 'Will-O-Wisp',
+    'Charizard': 'Blast Burn',
     'Nidoking': 'Toxic',
     'Venusaur': 'Sleep Powder',
     'Gyarados': 'Confuse Ray',
     'Dragonite': 'Dragon Dance'
 }
+
+# Weakness chart (attacker type -> defender type)
+WEAKNESSES = {
+    'Fire': 'Water',
+    'Water': 'Electric',
+    'Electric': 'Ground',
+    'Ground': 'Grass',
+    'Grass': 'Fire',
+    'Dragon': None  # Dragon has no weaknesses in this simplified system
+}
+
+# Helper function to check if an attack is super effective
+def is_super_effective(attacker_type, defender_type, defender_weakness):
+    """
+    Check if the attack is super effective.
+    Returns True if:
+    1. The attacker's type matches the defender's weakness type, OR
+    2. The defender has a specific weakness (like Poison/Ground)
+    """
+    # First check if the defender has a specific weakness attribute
+    if defender_weakness:
+        return attacker_type == defender_weakness
+    
+    # Then check the type cycle weakness
+    if defender_type in WEAKNESSES:
+        weak_to = WEAKNESSES[defender_type]
+        if weak_to and attacker_type == weak_to:
+            return True
+    
+    return False
 
 # Helper function to update the battle screen display
 def update_display():
@@ -78,7 +108,7 @@ def update_display():
     
 class Pokemon(pygame.sprite.Sprite):
     
-    def __init__(self, name, type, x, y, hp, attack, status_ability=None):
+    def __init__(self, name, type, x, y, hp, attack, status_ability=None, weakness=None):
         
         pygame.sprite.Sprite.__init__(self)
         
@@ -102,6 +132,9 @@ class Pokemon(pygame.sprite.Sprite):
         # status conditions
         self.status = STATUS_NONE
         self.status_ability = status_ability  # which status this pokemon can inflict
+        
+        # weakness (specific type this Pokemon is weak to)
+        self.weakness = weakness
         
         # number of potions left
         self.num_potions = 2
@@ -189,6 +222,14 @@ class Pokemon(pygame.sprite.Sprite):
         # Calculate damage
         damage = self.attack
         
+        # Check for weakness (super effective)
+        is_super = is_super_effective(self.type, other.type, other.weakness)
+        if is_super:
+            damage += 10  # Add 10 damage for super effective attacks
+            super_effective_message = True
+        else:
+            super_effective_message = False
+        
         # Missed attack (25% chance)
         missed_attack = False
         random_num = random.randint(1, 4)
@@ -206,11 +247,15 @@ class Pokemon(pygame.sprite.Sprite):
             time.sleep(2)
             if other.status == STATUS_BURN or other.status == STATUS_POISON:
                 other.apply_status_damage_at_turn_end()
-                
         else:
             other.take_damage(damage)
             display_message(f'{self.name} deals {damage} damage!')
             time.sleep(2)
+            
+            # Display super effective message if applicable
+            if is_super and super_effective_message:
+                display_message(f'{move_name} was super effective!')
+                time.sleep(2)
             
             # Update the display to show HP change immediately
             update_display()
@@ -219,11 +264,15 @@ class Pokemon(pygame.sprite.Sprite):
         # Apply status condition based on ability (immediately)
         if self.status_ability and not missed_attack:
             if self.status_ability == STATUS_BURN:
-                # Burn is guaranteed (100%)
-                other.status = STATUS_BURN
-                other.take_damage(20)
-                display_message(f'{other.name} is burned!')
-                time.sleep(2)
+                # Burn has 50% chance 
+                if random.randint(1, 2) == 1: 
+                    other.status = STATUS_BURN
+                    other.take_damage(20)
+                    display_message(f'{other.name} is burned!')
+                    time.sleep(2)
+                else:
+                    display_message(f'{other.name} resisted the burn!')
+                    time.sleep(2)
             
             elif self.status_ability == STATUS_POISON:
                 # Poison is guaranteed (100%)
@@ -238,12 +287,19 @@ class Pokemon(pygame.sprite.Sprite):
                     other.status = STATUS_PARALYSIS
                     display_message(f'{other.name} is paralyzed!')
                     time.sleep(2)
+                else:
+                    display_message(f'{other.name} resisted the paralysis!')
+                    time.sleep(2)
             
             elif self.status_ability == STATUS_SLEEP:
-                # Sleep is guaranteed (100%)
-                other.status = STATUS_SLEEP
-                display_message(f'{other.name} fell asleep!')
-                time.sleep(2)
+                # Sleep has 75% chance
+                if random.randint(1, 4) <= 3: 
+                    other.status = STATUS_SLEEP
+                    display_message(f'{other.name} fell asleep!')
+                    time.sleep(2)
+                else:
+                    display_message(f'{other.name} stayed awake!')
+                    time.sleep(2)
             
             elif self.status_ability == STATUS_CONFUSION:
                 # Confusion is guaranteed (100%)
@@ -304,7 +360,7 @@ class Pokemon(pygame.sprite.Sprite):
             display_message(f'{self.name} uses a potion and heals 50 HP!')
             time.sleep(2)
             if had_status:
-                display_message(f'{self.name} is cured of all status conditions!')
+                display_message(f'{self.name} is cured from all status effects!')
                 time.sleep(2)
                 
             # Update display to show HP change and status removed
@@ -454,21 +510,21 @@ def draw_instructions():
     font = pygame.font.Font(pygame.font.get_default_font(), 14)
     lines = [
         "How to Play:",
-        "1. Select a Pokemon (some can inflict status effects!)",
-        "2. On your turn, you may attack or use potions (2 in total)",
-        "3. Each potion heals 50 HP and removes all status effects",
-        "4. Status Effects:",
-        "   - Burn (100% chance per attack): 20 dmg/turn, coin flip to remove",
+        "1. On your turn, you may attack and/or use potions (2 in total)",
+        "2. Each potion heals 50 HP and removes all status effects",
+        "3. Status Effects:",
+        "   - Burn (50% chance per attack): 20 dmg/turn, coin flip to remove",
         "   - Poison (100% chance per attack): 10 dmg/turn, permanent",
-        "   - Sleep (100% chance per attack): Requires coin flip to wake up",
+        "   - Sleep (75% chance per attack): Requires coin flip to wake up",
         "   - Paralysis (50% chance per attack): Can't attack/heal for 1 turn",
         "   - Confusion (100% chance per attack): Must flip coin to attack",
+        "4. Type weaknesses result in super effective attacks (+10 damage)",
         "5. First to reduce opponent's HP to 0 wins!",
     ]
     y = 30
     for line in lines:
         text = font.render(line, True, black)
-        text_rect = text.get_rect(left=30, top=y)
+        text_rect = text.get_rect(left=10, top=y)
         game.blit(text, text_rect)
         y += 38
 
@@ -548,9 +604,20 @@ def draw_pokemon_stats_screen(pokemons, index):
     
     move_name = MOVE_NAMES.get(pokemon.name, 'Attack')
     
+    # Get weakness display text
+    if pokemon.weakness:
+        weakness_text = f"Weakness: {pokemon.weakness}"
+    else:
+        # Check the type cycle weakness
+        if pokemon.type in WEAKNESSES and WEAKNESSES[pokemon.type]:
+            weakness_text = f"Weakness: {WEAKNESSES[pokemon.type]}"
+        else:
+            weakness_text = "Weakness: None"
+    
     pokemon_details = [
         f"Name: {pokemon.name}",
         f"Type: {pokemon.type}",
+        weakness_text,
         f"HP: {pokemon.max_hp}",
         f"Attack: {pokemon.attack}",
         f"Move: {move_name}",
@@ -579,13 +646,13 @@ def draw_pokemon_stats_screen(pokemons, index):
     pygame.display.update()
     return button_previous, button_next
     
-# Create the pokemons
-raichu = Pokemon('Raichu', 'Electric', 25, 50, 140, 30, STATUS_PARALYSIS)
-charizard = Pokemon('Charizard', 'Fire', 175, 50, 180, 40, STATUS_BURN)
-venusaur = Pokemon('Venusaur', 'Grass', 325, 50, 200, 25, STATUS_SLEEP)
-gyarados = Pokemon('Gyarados', 'Water', 25, 200, 160, 45, STATUS_CONFUSION)
-nidoking = Pokemon('Nidoking', 'Poison/Ground', 175, 200, 150, 35, STATUS_POISON)
-dragonite = Pokemon('Dragonite', 'Dragon', 325, 200, 190, 50, None)
+# Create the pokemons with their specific weaknesses
+raichu = Pokemon('Raichu', 'Electric', 25, 50, 140, 30, STATUS_PARALYSIS, weakness='Ground')
+charizard = Pokemon('Charizard', 'Fire', 175, 50, 180, 40, STATUS_BURN, weakness='Water')
+venusaur = Pokemon('Venusaur', 'Grass', 325, 50, 230, 25, STATUS_SLEEP, weakness='Fire')
+gyarados = Pokemon('Gyarados', 'Water', 25, 200, 160, 45, STATUS_CONFUSION, weakness='Electric')
+nidoking = Pokemon('Nidoking', 'Poison/Ground', 175, 200, 150, 35, STATUS_POISON, weakness='Grass')
+dragonite = Pokemon('Dragonite', 'Dragon', 325, 200, 190, 50, None, weakness=None)  # Dragon has no weakness
 pokemons = [raichu, charizard, venusaur, gyarados, nidoking, dragonite]
 
 player_pokemon = None
@@ -608,12 +675,12 @@ while game_status != 'quit':
         if event.type == KEYDOWN:
             
             if event.key == K_y and game_status == 'gameover':
-                raichu = Pokemon('Raichu', 'Electric', 25, 50, 140, 30, STATUS_PARALYSIS)
-                charizard = Pokemon('Charizard', 'Fire', 175, 50, 180, 40, STATUS_BURN)
-                venusaur = Pokemon('Venusaur', 'Grass', 325, 50, 200, 25, STATUS_SLEEP)
-                gyarados = Pokemon('Gyarados', 'Water', 25, 200, 160, 45, STATUS_CONFUSION)
-                nidoking = Pokemon('Nidoking', 'Poison/Ground', 175, 200, 150, 35, STATUS_POISON)
-                dragonite = Pokemon('Dragonite', 'Dragon', 325, 200, 190, 50, None)
+                raichu = Pokemon('Raichu', 'Electric', 25, 50, 140, 30, STATUS_PARALYSIS, weakness='Ground')
+                charizard = Pokemon('Charizard', 'Fire', 175, 50, 180, 40, STATUS_BURN, weakness='Water')
+                venusaur = Pokemon('Venusaur', 'Grass', 325, 50, 230, 25, STATUS_SLEEP, weakness='Fire')
+                gyarados = Pokemon('Gyarados', 'Water', 25, 200, 160, 45, STATUS_CONFUSION, weakness='Electric')
+                nidoking = Pokemon('Nidoking', 'Poison/Ground', 175, 200, 150, 35, STATUS_POISON, weakness='Grass')
+                dragonite = Pokemon('Dragonite', 'Dragon', 325, 200, 190, 50, None, weakness=None)
                 pokemons = [raichu, charizard, venusaur, gyarados, nidoking, dragonite]
                 game_status = 'select pokemon'
                 
