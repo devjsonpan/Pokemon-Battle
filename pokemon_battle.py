@@ -669,7 +669,8 @@ while game_status != 'quit':
                         game_status = 'fainted'
                     else:
                         # Apply status damage/update
-                        player_pokemon.apply_status_damage_at_turn_end()
+                        if rival_pokemon.status != STATUS_PARALYSIS:
+                            player_pokemon.apply_status_damage_at_turn_end()
                         if player_pokemon.current_hp == 0:
                             game_status = 'fainted'
                         else:
@@ -775,7 +776,7 @@ while game_status != 'quit':
                 time.sleep(2)
                 
                 # Apply status damage/update
-                rival_pokemon.apply_status_damage_at_turn_end()
+                rival_pokemon.apply_status_damage_at_turn_end() 
                 player_pokemon.apply_status_damage_at_turn_end()
                 if rival_pokemon.current_hp == 0:
                     game_status = 'fainted'
@@ -819,7 +820,7 @@ while game_status != 'quit':
             time.sleep(2)
             
             # Apply status damage/update
-            player_pokemon.apply_status_damage_at_turn_end()
+            player_pokemon.apply_status_damage_at_turn_end()  
             rival_pokemon.apply_status_damage_at_turn_end()
             if player_pokemon.current_hp == 0:
                 game_status = 'fainted'
@@ -849,7 +850,8 @@ while game_status != 'quit':
                 game_status = 'fainted'
             else:
                 # Apply status damage/effect
-                rival_pokemon.apply_status_damage_at_turn_end()
+                if player_pokemon.status != STATUS_PARALYSIS:
+                    rival_pokemon.apply_status_damage_at_turn_end()
                 if rival_pokemon.current_hp == 0:
                     game_status = 'fainted'
                 else: 
