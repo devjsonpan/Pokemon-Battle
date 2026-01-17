@@ -1,4 +1,4 @@
-# References:
+# Took Inspiration from the video below :))
 # https://www.youtube.com/watch?v=Qbg2ZunNfJY
 
 import pygame
@@ -62,8 +62,8 @@ MOVE_NAMES = {
     'Dragonite': 'Dragon Dance'
 }
 
+# Helper function to update the battle screen display
 def update_display():
-    """Helper function to update the battle screen display"""
     game.fill(combat_background_grass_color)
     pygame.draw.rect(game, combat_background_sky_color, (0, 0, game_width, 150))
     
@@ -112,8 +112,8 @@ class Pokemon(pygame.sprite.Sprite):
         # set the sprite to the front facing sprite
         self.set_sprite('front_default')
     
+    # Check and apply status effects at the START of the turn
     def check_status_at_turn_start(self):
-        """Check and apply status effects at the START of turn"""
         # Paralysis: Can't act for 1 turn
         if self.status == STATUS_PARALYSIS:
             self.status = STATUS_NONE  # Remove paralysis after 1 turn
@@ -159,8 +159,8 @@ class Pokemon(pygame.sprite.Sprite):
         
         return True  # Can act
     
+    # Perform an attack on another Pokemon
     def perform_attack(self, other):
-        """Perform an attack on another Pokemon"""
         # Get move name
         move_name = MOVE_NAMES.get(self.name, 'Attack')
         
@@ -189,9 +189,9 @@ class Pokemon(pygame.sprite.Sprite):
         # Calculate damage
         damage = self.attack
         
-        # Missed attack (20% chance)
+        # Missed attack (25% chance)
         missed_attack = False
-        random_num = random.randint(1, 2)
+        random_num = random.randint(1, 4)
         if random_num == 1:
             damage = 0
             missed_attack = True
@@ -255,8 +255,8 @@ class Pokemon(pygame.sprite.Sprite):
             update_display()
             time.sleep(1)
     
+    # Apply status damage at the END of the turn
     def apply_status_damage_at_turn_end(self):
-        """Apply status damage at the END of turn"""
         # Burn: Take 20 damage at end of turn (if still burned)
         if self.status == STATUS_BURN:
             self.take_damage(20)
@@ -396,7 +396,7 @@ class Pokemon(pygame.sprite.Sprite):
             # Create and center status text
             status_surface = font.render(status_text, True, black)
             
-            # Method 1: Get text rectangle and center it within the background
+            # Get text rectangle and center it within the background
             status_text_rect = status_surface.get_rect(center=status_bg.center)
             game.blit(status_surface, status_text_rect)
         
@@ -454,21 +454,21 @@ def draw_instructions():
     font = pygame.font.Font(pygame.font.get_default_font(), 14)
     lines = [
         "How to Play:",
-        "1. Select a Pokemon - each has unique moves",
-        "2. Attack or use potions (heals 50 HP & cures status)",
-        "3. You can use multiple potions per turn!",
-        "4. Status conditions:",
-        "   - Burn (100%): 20 dmg/turn, coin flip to remove",
-        "   - Poison (100%): 10 dmg/turn, permanent",
-        "   - Sleep (100%): Can't act, coin flip to wake",
-        "   - Paralysis (50%): Can't act for 1 turn",
-        "   - Confusion (100%): Coin flip when attacking",
+        "1. Select a Pokemon (some can inflict status effects!)",
+        "2. On your turn, you may attack or use potions (2 in total)",
+        "3. Each potion heals 50 HP and removes all status effects",
+        "4. Status Effects:",
+        "   - Burn (100% chance per attack): 20 dmg/turn, coin flip to remove",
+        "   - Poison (100% chance per attack): 10 dmg/turn, permanent",
+        "   - Sleep (100% chance per attack): Requires coin flip to wake up",
+        "   - Paralysis (50% chance per attack): Can't attack/heal for 1 turn",
+        "   - Confusion (100% chance per attack): Must flip coin to attack",
         "5. First to reduce opponent's HP to 0 wins!",
     ]
     y = 30
     for line in lines:
         text = font.render(line, True, black)
-        text_rect = text.get_rect(center=(game_width // 2, y))
+        text_rect = text.get_rect(left=30, top=y)
         game.blit(text, text_rect)
         y += 38
 
@@ -538,11 +538,11 @@ def draw_pokemon_stats_screen(pokemons, index):
     pokemon = pokemons[index]
     
     status_names = {
-        STATUS_BURN: "Burn (30%)",
-        STATUS_PARALYSIS: "Paralysis (50%)", 
-        STATUS_POISON: "Poison (100%)",
-        STATUS_SLEEP: "Sleep (100%)",
-        STATUS_CONFUSION: "Confusion (100%)",
+        STATUS_BURN: "Burn",
+        STATUS_PARALYSIS: "Paralysis", 
+        STATUS_POISON: "Poison",
+        STATUS_SLEEP: "Sleep",
+        STATUS_CONFUSION: "Confusion",
         None: "None"
     }
     
@@ -554,11 +554,11 @@ def draw_pokemon_stats_screen(pokemons, index):
         f"HP: {pokemon.max_hp}",
         f"Attack: {pokemon.attack}",
         f"Move: {move_name}",
-        f"Status: {status_names.get(pokemon.status_ability, 'None')}"
+        f"Effect: {status_names.get(pokemon.status_ability, 'None')}"
     ]
     
-    pokemon_image = pygame.transform.scale(pokemon.image, (230, 230))
-    game.blit(pokemon_image, (game_width - 250, 130))
+    pokemon_image = pygame.transform.scale(pokemon.image, (330, 330))
+    game.blit(pokemon_image, (game_width - 310, 70))
 
     y = 90
     for detail in pokemon_details:
@@ -579,13 +579,13 @@ def draw_pokemon_stats_screen(pokemons, index):
     pygame.display.update()
     return button_previous, button_next
     
-# Create the starter pokemons (TCG Pocket style stats)
-raichu = Pokemon('Raichu', 'Electric', 25, 50, 120, 30, STATUS_PARALYSIS)
-charizard = Pokemon('Charizard', 'Fire', 175, 50, 180, 50, STATUS_BURN)
-venusaur = Pokemon('Venusaur', 'Grass', 325, 50, 160, 40, STATUS_SLEEP)
-gyarados = Pokemon('Gyarados', 'Water', 25, 200, 150, 45, STATUS_CONFUSION)
-nidoking = Pokemon('Nidoking', 'Poison/Ground', 175, 200, 140, 35, STATUS_POISON)
-dragonite = Pokemon('Dragonite', 'Dragon', 325, 200, 170, 40, None)
+# Create the pokemons
+raichu = Pokemon('Raichu', 'Electric', 25, 50, 140, 30, STATUS_PARALYSIS)
+charizard = Pokemon('Charizard', 'Fire', 175, 50, 180, 40, STATUS_BURN)
+venusaur = Pokemon('Venusaur', 'Grass', 325, 50, 200, 25, STATUS_SLEEP)
+gyarados = Pokemon('Gyarados', 'Water', 25, 200, 160, 45, STATUS_CONFUSION)
+nidoking = Pokemon('Nidoking', 'Poison/Ground', 175, 200, 150, 35, STATUS_POISON)
+dragonite = Pokemon('Dragonite', 'Dragon', 325, 200, 190, 50, None)
 pokemons = [raichu, charizard, venusaur, gyarados, nidoking, dragonite]
 
 player_pokemon = None
@@ -608,12 +608,12 @@ while game_status != 'quit':
         if event.type == KEYDOWN:
             
             if event.key == K_y and game_status == 'gameover':
-                raichu = Pokemon('Raichu', 'Electric', 25, 50, 120, 30, STATUS_PARALYSIS)
-                charizard = Pokemon('Charizard', 'Fire', 175, 50, 180, 50, STATUS_BURN)
-                venusaur = Pokemon('Venusaur', 'Grass', 325, 50, 160, 40, STATUS_SLEEP)
-                gyarados = Pokemon('Gyarados', 'Water', 25, 200, 150, 45, STATUS_CONFUSION)
-                nidoking = Pokemon('Nidoking', 'Poison/Ground', 175, 200, 140, 35, STATUS_POISON)
-                dragonite = Pokemon('Dragonite', 'Dragon', 325, 200, 170, 40, None)
+                raichu = Pokemon('Raichu', 'Electric', 25, 50, 140, 30, STATUS_PARALYSIS)
+                charizard = Pokemon('Charizard', 'Fire', 175, 50, 180, 40, STATUS_BURN)
+                venusaur = Pokemon('Venusaur', 'Grass', 325, 50, 200, 25, STATUS_SLEEP)
+                gyarados = Pokemon('Gyarados', 'Water', 25, 200, 160, 45, STATUS_CONFUSION)
+                nidoking = Pokemon('Nidoking', 'Poison/Ground', 175, 200, 150, 35, STATUS_POISON)
+                dragonite = Pokemon('Dragonite', 'Dragon', 325, 200, 190, 50, None)
                 pokemons = [raichu, charizard, venusaur, gyarados, nidoking, dragonite]
                 game_status = 'select pokemon'
                 
@@ -835,7 +835,7 @@ while game_status != 'quit':
             time.sleep(2)
 
             # AI decision: use potion if low HP
-            if rival_pokemon.current_hp <= 70 and rival_pokemon.num_potions > 0:
+            if (rival_pokemon.max_hp - rival_pokemon.current_hp >= 50) and rival_pokemon.num_potions > 0:
                 rival_pokemon.use_potion()
                 
                 # Update the display to show the new HP and status cleared
