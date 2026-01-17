@@ -645,7 +645,7 @@ raichu = Pokemon('Raichu', 'Electric', 25, 50, 140, 30, STATUS_PARALYSIS, weakne
 charizard = Pokemon('Charizard', 'Fire', 175, 50, 180, 40, STATUS_BURN, weakness='Water')
 venusaur = Pokemon('Venusaur', 'Grass', 325, 50, 230, 25, STATUS_SLEEP, weakness='Fire')
 gyarados = Pokemon('Gyarados', 'Water', 25, 200, 160, 45, STATUS_CONFUSION, weakness='Electric')
-nidoking = Pokemon('Nidoking', 'Poison/Ground', 175, 200, 150, 35, STATUS_POISON, weakness='Grass')
+nidoking = Pokemon('Nidoking', 'Ground', 175, 200, 150, 35, STATUS_POISON, weakness='Grass')
 dragonite = Pokemon('Dragonite', 'Dragon', 325, 200, 190, 50, None, weakness=None)  # Dragon has no weakness
 pokemons = [raichu, charizard, venusaur, gyarados, nidoking, dragonite]
 
@@ -673,7 +673,7 @@ while game_status != 'quit':
                 charizard = Pokemon('Charizard', 'Fire', 175, 50, 180, 40, STATUS_BURN, weakness='Water')
                 venusaur = Pokemon('Venusaur', 'Grass', 325, 50, 230, 25, STATUS_SLEEP, weakness='Fire')
                 gyarados = Pokemon('Gyarados', 'Water', 25, 200, 160, 45, STATUS_CONFUSION, weakness='Electric')
-                nidoking = Pokemon('Nidoking', 'Poison/Ground', 175, 200, 150, 35, STATUS_POISON, weakness='Grass')
+                nidoking = Pokemon('Nidoking', 'Ground', 175, 200, 150, 35, STATUS_POISON, weakness='Grass')
                 dragonite = Pokemon('Dragonite', 'Dragon', 325, 200, 190, 50, None, weakness=None)
                 pokemons = [raichu, charizard, venusaur, gyarados, nidoking, dragonite]
                 game_status = 'select pokemon'
