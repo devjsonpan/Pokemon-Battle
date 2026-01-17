@@ -69,22 +69,16 @@ WEAKNESSES = {
     'Electric': 'Ground',
     'Ground': 'Grass',
     'Grass': 'Fire',
-    'Dragon': None  # Dragon has no weaknesses in this simplified system
+    'Dragon': None  
 }
 
 # Helper function to check if an attack is super effective
 def is_super_effective(attacker_type, defender_type, defender_weakness):
-    """
-    Check if the attack is super effective.
-    Returns True if:
-    1. The attacker's type matches the defender's weakness type, OR
-    2. The defender has a specific weakness (like Poison/Ground)
-    """
-    # First check if the defender has a specific weakness attribute
+    # Check if the defender has a specific weakness attribute
     if defender_weakness:
         return attacker_type == defender_weakness
     
-    # Then check the type cycle weakness
+    # Check the type cycle weakness
     if defender_type in WEAKNESSES:
         weak_to = WEAKNESSES[defender_type]
         if weak_to and attacker_type == weak_to:
