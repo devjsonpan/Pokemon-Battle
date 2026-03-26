@@ -4,7 +4,6 @@
 import pygame
 from pygame.locals import *
 import time
-import math
 import random
 import requests
 import io
