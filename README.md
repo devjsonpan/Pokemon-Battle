@@ -77,8 +77,8 @@ A turn-based Pokémon battle simulator featuring unique status effects, type adv
 
 ```
 Pokemon-Battle/
-├── pokemon_battle.py                
-└── README.md           
+├── pokemon_battle.py        # Main game file               
+└── README.md                # This file
 ```
 ## 🚀 Installation
 
