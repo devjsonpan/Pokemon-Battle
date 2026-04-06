@@ -1,4 +1,4 @@
-# Pokémon Battle Royale ⚡
+# Pokémon Turn-Based Battle Simulator ⚡
 
 [![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Pygame](https://img.shields.io/badge/Pygame-2.0+-green?style=for-the-badge&logo=pygame&logoColor=white)](https://www.pygame.org/)
