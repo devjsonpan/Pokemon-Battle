@@ -58,11 +58,11 @@ A turn-based Pokémon battle simulator featuring unique status effects, type adv
     </td>
     <td align="center">
       <img width="250" alt="Stats View" src="https://github.com/user-attachments/assets/661a254b-d526-4bfa-aa37-d68265494ba2"/>
-      <br/><em>Battle Screen</em>
+      <br/><em>Stats View</em>
     </td>
     <td align="center">
       <img width="250" alt="Battle Screen" src="https://github.com/user-attachments/assets/31a5f914-b26e-4d58-a66b-940327799298"/>
-      <br/><em>Stats View</em>
+      <br/><em>Battle Screen</em>
     </td>
   </tr>
 </table>
